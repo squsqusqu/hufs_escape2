@@ -1,353 +1,149 @@
 import pygame
 import sys
-from pygame.locals import *
+import random
 
-pygame.init()
+# [수정] main.py에서 생성한 화면 스크린과 선택된 성별을 매개변수로 받습니다.
+def run(screen, selected_gender):
 
-# =========================
-# 화면 설정
-# =========================
+    # 화면 설정 (정의 값은 유지하되 디스플레이 생성 코드는 제거)
+    screen_width = 800
+    screen_height = 600
+    clock = pygame.time.Clock()
 
-WIDTH = 800
-HEIGHT = 600
+    # 폰트 설정
+    font = pygame.font.SysFont(None, 50) 
 
-DISPLAYSURF = pygame.display.set_mode((WIDTH, HEIGHT))
-pygame.display.set_caption("외대탈출 ROUND 2")
-
-clock = pygame.time.Clock()
-
-# =========================
-# 폰트
-# =========================
-
-font = pygame.font.Font(
-    "font/Galmuri11-Bold.ttf",
-    35
-)
-
-# =========================
-# 성별 선택
-# main.py에서 값 받아올 예정
-# =========================
-
-selected_gender = "male"
-
-# =========================
-# 이미지 불러오기
-# =========================
-
-# 기본 배경 (엘베 닫힘)
-closed_bg = pygame.image.load(
-    "image/hall_1.png"
-).convert()
-
-closed_bg = pygame.transform.scale(
-    closed_bg,
-    (WIDTH, HEIGHT)
-)
-
-# 엘베 열린 배경
-open_bg = pygame.image.load(
-    "image/hall_2.png"
-).convert()
-
-open_bg = pygame.transform.scale(
-    open_bg,
-    (WIDTH, HEIGHT)
-)
-
-# 게임오버 이미지
-gameover_img = pygame.image.load(
-    "image/Stage3_gameover (2).png"
-).convert()
-
-gameover_img = pygame.transform.scale(
-    gameover_img,
-    (WIDTH, HEIGHT)
-)
-
-# =========================
-# 남자 캐릭터 이미지
-# =========================
-
-male_run1 = pygame.image.load(
-    "image/male_run.png"
-).convert_alpha()
-
-male_run2 = pygame.image.load(
-    "image/male_run2.png"
-).convert_alpha()
-
-male_run1 = pygame.transform.scale(male_run1, (100,100))
-male_run2 = pygame.transform.scale(male_run2, (100,100))
-
-# =========================
-# 여자 캐릭터 이미지
-# =========================
-
-female_run1 = pygame.image.load(
-    "image/female_run.png"
-).convert_alpha()
-
-female_run2 = pygame.image.load(
-    "image/female_run2.png"
-).convert_alpha()
-
-female_run1 = pygame.transform.scale(female_run1, (100,100))
-female_run2 = pygame.transform.scale(female_run2, (100,100))
-
-# =========================
-# 변수
-# =========================
-
-scene = "game"
-
-frame_index = 0
-animation_timer = 0
-animation_speed = 200
-
-# 시작 위치
-player_x = 80
-player_y = 520
-
-# 엘베 상태
-elevator_open = False
-
-# 게임오버 타이머
-gameover_timer = 0
-
-# =========================
-# 히트박스
-# =========================
-
-# 엘베 위치
-elevator_rect = pygame.Rect(
-    420,
-    135,
-    130,
-    180
-)
-
-# 계단 위치
-stairs_rect = pygame.Rect(
-    620,
-    100,
-    145,
-    190
-)
-
-# =========================
-# 마우스 시작 위치
-# =========================
-
-pygame.mouse.set_pos((80,520))
-
-# =========================
-# 게임 루프
-# =========================
-
-while True:
-
-    dt = clock.tick(60)
-
-    for event in pygame.event.get():
-
-        if event.type == QUIT:
-            pygame.quit()
-            sys.exit()
-
-        # =========================
-        # 게임오버 상태
-        # =========================
-
-        if scene == "gameover":
-
-            if event.type == KEYDOWN:
-
-                scene = "game"
-
-                elevator_open = False
-                gameover_timer = 0
-
-                pygame.mouse.set_pos((80,520))
-
-    # =========================
-    # 마우스 숨기기
-    # =========================
-
+    # 마우스 커서 숨기기
     pygame.mouse.set_visible(False)
 
-    # =========================
-    # 마우스 위치
-    # =========================
+    # --- 이미지 로드 및 크기 조정 ---
 
-    mx, my = pygame.mouse.get_pos()
+    # 1. 배경
+    bg_img = pygame.image.load("image/Stage2_강의실 배경.png").convert()
+    bg_img = pygame.transform.scale(bg_img, (screen_width, screen_height))
 
-    player_x = mx
-    player_y = my
+    # 2. 교수님 (전면/후면)
+    prof_front = pygame.image.load("image/Stage2_교수님 객체_전면.png").convert_alpha()
+    prof_back = pygame.image.load("image/Stage2_교수님 객체_후면.png").convert_alpha()
+    prof_size = (80, 150)
+    prof_front = pygame.transform.scale(prof_front, prof_size)
+    prof_back = pygame.transform.scale(prof_back, prof_size)
+    prof_rect = prof_front.get_rect(center=(330, 270)) 
 
-    # =========================
-    # 플레이어 히트박스
-    # =========================
+    # 3. 플레이어 (성별 데이터에 따른 분기 처리)
+    player_size = (80, 150) 
+    
+    if selected_gender == "male":
+        player_walk = pygame.image.load("image/male_run_l.png").convert_alpha()
+        player_run = pygame.image.load("image/male_run2_l.png").convert_alpha()
+        success_bg_path = "image/Stage2_선택지3_남학생.png"
+    else:
+        # [수정] 여학생 전용 대형 이미지가 없을 경우를 대비한 예외 처리 로직입니다.
+        try:
+            player_walk = pygame.image.load("image/female_run_l.png").convert_alpha()
+            player_run = pygame.image.load("image/female_run2_l.png").convert_alpha()
+        except:
+            player_walk = pygame.image.load("image/female_run.png").convert_alpha()
+            player_run = pygame.image.load("image/female_run2.png").convert_alpha()
+        
+        try:
+            success_bg_path = "image/Stage2_선택지3_여학생.png"
+            pygame.image.load(success_bg_path)
+        except:
+            success_bg_path = "image/Stage2_선택지3_남학생.png"
 
-    player_rect = pygame.Rect(
-        player_x - 20,
-        player_y - 20,
-        40,
-        40
-    )
+    player_walk = pygame.transform.scale(player_walk, player_size)
+    player_run = pygame.transform.scale(player_run, player_size)
 
-    # =========================
-    # 게임 상태
-    # =========================
+    # 4. 결과 화면 이미지
+    fail1_img = pygame.image.load("image/Stage2_선택지1.png").convert() 
+    success_img = pygame.image.load(success_bg_path).convert()
 
-    if scene == "game":
+    fail1_img = pygame.transform.scale(fail1_img, (screen_width, screen_height))
+    success_img = pygame.transform.scale(success_img, (screen_width, screen_height))
 
-        # =========================
-        # 엘베 충돌
-        # =========================
+    # --- 게임 상태 및 변수 설정 ---
+    player_rect = player_walk.get_rect(center=pygame.mouse.get_pos())
+    prev_mouse_pos = pygame.mouse.get_pos() 
 
-        if player_rect.colliderect(elevator_rect):
+    door_rect = pygame.Rect(20, 150, 100, 250) 
 
-            elevator_open = True
+    prof_facing_front = False 
+    last_turn_time = pygame.time.get_ticks()
+    turn_interval = random.randint(1500, 3000) 
 
-        # =========================
-        # 계단 충돌
-        # =========================
+    game_state = 'PLAYING'
 
-        if not elevator_open:
-            if player_rect.colliderect(stairs_rect):
+    # --- 메인 게임 루프 ---
+    while True:
+        current_time = pygame.time.get_ticks()
+        
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return False # [수정] 창을 닫으면 전체 프로세스 종료를 위해 False 반환
+                
+            # [수정] 키보드 입력뿐만 아니라 마우스 클릭으로도 상태를 넘길 수 있도록 보완
+            if event.type == pygame.KEYDOWN or event.type == pygame.MOUSEBUTTONDOWN:
+                if game_state == 'FAIL1':
+                    game_state = 'PLAYING'
+                    pygame.mouse.set_visible(False) 
+                    prof_facing_front = False 
+                    last_turn_time = pygame.time.get_ticks() 
+                    
+                    pygame.mouse.set_pos(screen_width // 2, screen_height - 100) 
+                    prev_mouse_pos = pygame.mouse.get_pos()
+                    player_rect.center = prev_mouse_pos
+                    
+                elif game_state == 'SUCCESS':
+                    return True # [수정] 성공 화면에서 조작 시 True를 반환하며 Stage 3로 전환
 
-                scene = "stage3"
+        if game_state == 'PLAYING':
+            if current_time - last_turn_time > turn_interval:
+                prof_facing_front = not prof_facing_front 
+                last_turn_time = current_time
+                turn_interval = random.randint(1500, 3500) 
 
-        # =========================
-        # 배경 출력
-        # =========================
+            current_mouse_pos = pygame.mouse.get_pos()
+            player_rect.center = current_mouse_pos 
+            
+            is_moving = False
+            if current_mouse_pos != prev_mouse_pos:
+                is_moving = True
+                
+            prev_mouse_pos = current_mouse_pos 
 
-        if elevator_open:
+            if is_moving:
+                if prof_facing_front:
+                    game_state = 'FAIL1'
+                    pygame.mouse.set_visible(True) 
+                    
+            if player_rect.colliderect(door_rect):
+                game_state = 'SUCCESS'
+                pygame.mouse.set_visible(True) 
 
-            DISPLAYSURF.blit(open_bg, (0,0))
-
-            gameover_timer += dt
-
-            # 1초 후 게임오버
-            if gameover_timer >= 1000:
-
-                scene = "gameover"
-
-        else:
-
-            DISPLAYSURF.blit(closed_bg, (0,0))
-
-        # =========================
-        # 상단 안내 문구
-        # =========================
-
-        hint_text = font.render(
-        "엘레베이터를 타볼까?",
-        True,
-        (255, 0, 0))
-
-        hint_rect = hint_text.get_rect(center=(400, 40))
-
-        DISPLAYSURF.blit(
-        hint_text,
-        hint_rect)
-
-        # =========================
-        # 캐릭터 애니메이션
-        # =========================
-
-        animation_timer += dt
-
-        if animation_timer >= animation_speed:
-
-            animation_timer = 0
-
-            if frame_index == 0:
-                frame_index = 1
+            screen.blit(bg_img, (0, 0)) 
+            
+            if prof_facing_front:
+                screen.blit(prof_front, prof_rect)
             else:
-                frame_index = 0
-
-        # =========================
-        # 성별별 캐릭터
-        # =========================
-
-        if selected_gender == "male":
-
-            if frame_index == 0:
-                player_img = male_run1
+                screen.blit(prof_back, prof_rect)
+                
+            if is_moving:
+                screen.blit(player_run, player_rect)
             else:
-                player_img = male_run2
+                screen.blit(player_walk, player_rect)
 
-        elif selected_gender == "female":
+        elif game_state == 'FAIL1':
+            screen.blit(fail1_img, (0, 0))
+            gameover_text = font.render("PRESS ANY KEY TO RETRY", True, (0, 0, 0))
+            text_rect = gameover_text.get_rect(center=(screen_width // 2, 520))
+            screen.blit(gameover_text, text_rect)
+            
+        elif game_state == 'SUCCESS':
+            screen.blit(success_img, (0, 0))
+            next_text = font.render("PRESS ANY KEY TO NEXT STAGE", True, (0, 0, 0))
+            text_rect = next_text.get_rect(center=(screen_width // 2, 520))
+            screen.blit(next_text, text_rect)
 
-            if frame_index == 0:
-                player_img = female_run1
-            else:
-                player_img = female_run2
-
-        # =========================
-        # 캐릭터 출력
-        # =========================
-
-        DISPLAYSURF.blit(
-            player_img,
-            (player_x - 50, player_y - 50)
-        )
-
-    # =========================
-    # 게임오버 화면
-    # =========================
-
-    elif scene == "gameover":
-
-        DISPLAYSURF.blit(gameover_img, (0,0))
-
-        gameover_text = font.render(
-            "PRESS ANY KEY TO RETRY",
-            True,
-            (0,0,0)
-        )
-
-        text_rect = gameover_text.get_rect(center=(400,520))
-
-        DISPLAYSURF.blit(gameover_text, text_rect)
-
-    # =========================
-    # 스테이지3 화면
-    # =========================
-
-    elif scene == "stage3":
-
-        DISPLAYSURF.fill((0,0,0))
-
-        clear_text = font.render(
-            "STAGE 3",
-            True,
-            (255,255,255)
-        )
-
-        text_rect = clear_text.get_rect(center=(400,300))
-
-        DISPLAYSURF.blit(clear_text, text_rect)
-
-    # =========================
-    # 히트박스 확인용
-    # =========================
-
-    # pygame.draw.rect(
-    #     DISPLAYSURF,
-    #     (255,0,0),
-    #     elevator_rect,
-    #     2
-    # )
-
-    # pygame.draw.rect(
-    #     DISPLAYSURF,
-    #     (0,255,0),
-    #     stairs_rect,
-    #     2
-    # )
-
-    pygame.display.update()
+        pygame.display.flip() 
+        clock.tick(60)
