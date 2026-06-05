@@ -1,169 +1,219 @@
 import pygame
 import sys
-import random
+from pygame.locals import *
 
-def run():
-
-    # 화면 설정 (배경 이미지 비율에 맞춰 조정 가능)
-    screen_width = 800
-    screen_height = 600
-    screen = pygame.display.set_mode((screen_width, screen_height))
-    pygame.display.set_caption("교실 탈출 게임")
+# [수정] main.py에서 제어하므로 pygame.init()을 제거하고 run 함수로 감쌉니다.
+def run(DISPLAYSURF, selected_gender):
+    # =========================
+    # 화면 설정 값 (내부 연산용)
+    # =========================
+    WIDTH = 800
+    HEIGHT = 600
     clock = pygame.time.Clock()
 
-    # === 수정된 부분: 폰트 설정 (재시작 텍스트용) ===
-    font = pygame.font.SysFont(None, 50) 
-    # ================================================
+    # =========================
+    # 폰트
+    # =========================
+    font = pygame.font.Font("font/Galmuri11-Bold.ttf", 35)
 
-    # 마우스 커서 숨기기 (남학생 이미지가 커서를 대신함)
-    pygame.mouse.set_visible(False)
+    # =========================
+    # 이미지 불러오기
+    # =========================
+    background = pygame.image.load("image/stage1_bg.png").convert()
+    background = pygame.transform.scale(background, (WIDTH, HEIGHT))
 
-    # --- 이미지 로드 및 크기 조정 ---
+    # 교수 이미지
+    professor_side = pygame.image.load("image/professor_side.png").convert_alpha()
+    professor_front = pygame.image.load("image/professor_front.png").convert_alpha()
+    professor_side = pygame.transform.scale(professor_side, (180, 220))
+    professor_front = pygame.transform.scale(professor_front, (180, 220))
 
-    # 1. 배경
-    bg_img = pygame.image.load("image/Stage2_강의실 배경.png").convert()
-    bg_img = pygame.transform.scale(bg_img, (screen_width, screen_height))
+    # 학생(책상)
+    student_img = pygame.image.load("image/student_img.png").convert_alpha()
+    student_img = pygame.transform.scale(student_img, (180, 180))
 
-    # 2. 교수님 (전면/후면)
-    prof_front = pygame.image.load("image/Stage2_교수님 객체_전면.png").convert_alpha()
-    prof_back = pygame.image.load("image/Stage2_교수님 객체_후면.png").convert_alpha()
+    # 게임오버
+    gameover_img = pygame.image.load("image/stage3_gameover.png").convert()
+    gameover_img = pygame.transform.scale(gameover_img, (WIDTH, HEIGHT))
 
-    # 교수님 크기 조정
-    prof_size = (80, 150)
-    prof_front = pygame.transform.scale(prof_front, prof_size)
-    prof_back = pygame.transform.scale(prof_back, prof_size)
+    # =========================
+    # 캐릭터 이미지
+    # =========================
+    male_run1 = pygame.image.load("image/male_run.png").convert_alpha()
+    male_run2 = pygame.image.load("image/male_run2.png").convert_alpha()
+    female_run1 = pygame.image.load("image/female_run.png").convert_alpha()
+    female_run2 = pygame.image.load("image/female_run2.png").convert_alpha()
 
-    # 교수님 위치 (마이크 단상 바로 오른쪽)
-    prof_rect = prof_front.get_rect(center=(330, 270)) 
+    male_run1 = pygame.transform.scale(male_run1, (100,100))
+    male_run2 = pygame.transform.scale(male_run2, (100,100))
+    female_run1 = pygame.transform.scale(female_run1, (100,100))
+    female_run2 = pygame.transform.scale(female_run2, (100,100))
 
-    # 3. 플레이어 (학생 걷기/뛰기)
-    player_walk = pygame.image.load("image/male_run_l.png").convert_alpha()
-    player_run = pygame.image.load("image/male_run2_l.png").convert_alpha()
+    # =========================
+    # 변수
+    # =========================
+    scene = "game"
+    frame_index = 0
+    animation_timer = 0
+    animation_speed = 200
 
-    # === 수정된 부분: 학생 크기를 교수님과 동일하게(80, 150) 확대 ===
-    player_size = (80, 150) 
-    player_walk = pygame.transform.scale(player_walk, player_size)
-    player_run = pygame.transform.scale(player_run, player_size)
-    # ================================================================
+    # 시작 위치
+    start_x = WIDTH
+    start_y = HEIGHT
+    game_started = False
 
-    # 4. 결과 화면 이미지
-    fail1_img = pygame.image.load("image/Stage2_선택지1.png").convert() # 출튀 걸림
-    success_img = pygame.image.load("image/Stage2_선택지3_남학생.png").convert() # 탈출 성공 (남학생 기준)
+    # =========================
+    # 교수 상태
+    # =========================
+    professor_state = "side"
+    professor_timer = 0
+    SIDE_TIME = 1200
+    FRONT_TIME = 2000
 
-    fail1_img = pygame.transform.scale(fail1_img, (screen_width, screen_height))
-    success_img = pygame.transform.scale(success_img, (screen_width, screen_height))
+    # 마우스 움직임 감지용
+    last_mouse_pos = (0, 0)
 
-    # --- 게임 상태 및 변수 설정 ---
-    # 플레이어 초기 위치를 마우스 현재 위치로 설정
-    player_rect = player_walk.get_rect(center=pygame.mouse.get_pos())
-    prev_mouse_pos = pygame.mouse.get_pos() # 이전 프레임의 마우스 위치 추적용
+    # 앞모습 유예시간
+    front_grace_timer = 0
+    FRONT_GRACE_TIME = 200
 
-    # 충돌 박스 (히트박스) 설정
-    # 문 위치 대략적 수정 (왼쪽 문)
-    door_rect = pygame.Rect(20, 150, 100, 250) 
+    # =========================
+    # 위치
+    # =========================
+    professor_pos = (500, 200)
+    student_positions = [(70, 320), (310, 320), (570, 320)]
 
-    # 교수님 상태 변수
-    prof_facing_front = False # False면 칠판을 봄(이동 가능), True면 앞을 봄(이동 불가)
-    last_turn_time = pygame.time.get_ticks()
-    turn_interval = random.randint(1500, 3000) # 1.5초 ~ 3초 사이 랜덤하게 돌아봄
+    # 학생 히트박스
+    student_rects = [
+        pygame.Rect(85, 350, 130, 130),
+        pygame.Rect(330, 350, 130, 130),
+        pygame.Rect(590, 350, 130, 130)
+    ]
 
-    # 게임 진행 상태 ('PLAYING', 'FAIL1', 'SUCCESS')
-    game_state = 'PLAYING'
+    # 문 히트박스
+    door_rect = pygame.Rect(60, 130, 90, 260)
 
-    # --- 메인 게임 루프 ---
-    running = True
-    while running:
-        current_time = pygame.time.get_ticks()
-        
-        # 이벤트 처리
+    # =========================
+    # 게임 루프
+    # =========================
+    while True:
+        dt = clock.tick(60)
+
         for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-                
-            # === 수정된 부분: 실패 화면에서 아무 키나 누르면 재시작 ===
-            if event.type == pygame.KEYDOWN:
-                if game_state == 'FAIL1':
-                    # 게임 상태 초기화
-                    game_state = 'PLAYING'
-                    pygame.mouse.set_visible(False) # 마우스 다시 숨김
-                    prof_facing_front = False # 교수님은 다시 칠판을 봄
-                    last_turn_time = pygame.time.get_ticks() # 타이머 초기화
-                    
-                    # 플레이어 위치 마우스 위치로 재설정 (재시작 시 바로 죽는 현상 방지)
-                    pygame.mouse.set_pos(screen_width // 2, screen_height - 100) # 커서를 화면 하단으로 초기화
-                    prev_mouse_pos = pygame.mouse.get_pos()
-                    player_rect.center = prev_mouse_pos
-                elif game_state == "SUCCESS" :
-                    return
-            # ==========================================================
+            if event.type == QUIT:
+                return False # [수정] 창을 닫으면 게임 전체 종료를 위해 False 반환
 
-        if game_state == 'PLAYING':
-            # 1. 교수님 뒤돌아보는 로직 (타이머 기반)
-            if current_time - last_turn_time > turn_interval:
-                prof_facing_front = not prof_facing_front # 상태 반전
-                last_turn_time = current_time
-                turn_interval = random.randint(1500, 3500) # 다음 턴 시간 다시 랜덤 설정
+            # =====================
+            # 게임오버 재도전
+            # =====================
+            if scene == "gameover":
+                if event.type == KEYDOWN:
+                    scene = "game"
+                    professor_state = "side"
+                    professor_timer = 0
+                    front_grace_timer = 0
+                    pygame.mouse.set_pos((start_x,start_y))
+                    last_mouse_pos = (start_x,start_y)
+                    game_started = False
 
-            # 2. 마우스 좌표 기반 이동 로직
-            current_mouse_pos = pygame.mouse.get_pos()
-            player_rect.center = current_mouse_pos # 남학생 이미지가 마우스를 따라감
-            
-            is_moving = False
-            
-            # 이전 마우스 좌표와 현재 좌표가 다르면 '움직임'으로 판정
-            if current_mouse_pos != prev_mouse_pos:
-                is_moving = True
-                
-            prev_mouse_pos = current_mouse_pos # 다음 프레임 비교를 위해 현재 위치 저장
+            # =====================
+            # [수정] 스테이지 클리어 후 넘어가기
+            # =====================
+            elif scene == "stage2":
+                if event.type == KEYDOWN or event.type == MOUSEBUTTONDOWN:
+                    return True # 아무 키나 누르면 True를 반환하며 다음 스테이지로 제어권을 넘김
 
-            # 3. 충돌 및 게임 오버 판정 로직
-            if is_moving:
-                # [실패 조건] 교수님이 앞을 볼 때 마우스를 움직인 경우
-                if prof_facing_front:
-                    game_state = 'FAIL1'
-                    pygame.mouse.set_visible(True) # 게임 오버 시 기본 마우스 커서 다시 표시
-                    
-            # [성공 조건] 문 히트박스와 닿은 경우
+        pygame.mouse.set_visible(False)
+        mx, my = pygame.mouse.get_pos()
+
+        # 플레이어 히트박스
+        player_rect = pygame.Rect(mx - 20, my - 20, 40, 40)
+
+        # =========================
+        # 게임 화면
+        # =========================
+        if scene == "game":
+            # 시작 위치
+            if not game_started:
+                pygame.mouse.set_pos((start_x, start_y))
+                last_mouse_pos = (start_x, start_y)
+                game_started = True
+
+            DISPLAYSURF.blit(background, (0,0))
+
+            # 교수 상태 변경
+            professor_timer += dt
+            if professor_state == "side":
+                if professor_timer >= SIDE_TIME:
+                    professor_state = "front"
+                    professor_timer = 0
+                    front_grace_timer = 0
+            else:
+                if professor_timer >= FRONT_TIME:
+                    professor_state = "side"
+                    professor_timer = 0
+
+            # 교수 출력
+            if professor_state == "side":
+                professor_img = professor_side
+            else:
+                professor_img = professor_front
+
+            DISPLAYSURF.blit(professor_img, professor_pos)
+
+            # 학생 출력
+            for pos in student_positions:
+                DISPLAYSURF.blit(student_img, pos)
+
+            # 학생 충돌
+            for rect in student_rects:
+                if player_rect.colliderect(rect):
+                    scene = "gameover"
+
+            # 교수 앞모습 감지
+            if professor_state == "front":
+                front_grace_timer += dt
+                if front_grace_timer >= FRONT_GRACE_TIME:
+                    if (mx, my) != last_mouse_pos:
+                        scene = "gameover"
+
+            last_mouse_pos = (mx, my)
+
+            # 문 충돌
             if player_rect.colliderect(door_rect):
-                game_state = 'SUCCESS'
-                pygame.mouse.set_visible(True) # 게임 클리어 시 기본 마우스 커서 다시 표시
+                scene = "stage2"
 
-            # 4. 화면 그리기
-            screen.blit(bg_img, (0, 0)) # 배경
-            
-            # 교수님 그리기
-            if prof_facing_front:
-                screen.blit(prof_front, prof_rect)
+            # 캐릭터 애니메이션
+            animation_timer += dt
+            if animation_timer >= animation_speed:
+                animation_timer = 0
+                frame_index = (frame_index + 1) % 2
+
+            # [수정] main.py에서 전달받은 매개변수 selected_gender를 사용합니다.
+            if selected_gender == "male":
+                player_img = male_run1 if frame_index == 0 else male_run2
             else:
-                screen.blit(prof_back, prof_rect)
-                
-            # 플레이어 그리기 (마우스가 움직일 땐 뛰는 프레임, 멈춰있을 땐 걷는 프레임)
-            if is_moving:
-                screen.blit(player_run, player_rect)
-            else:
-                screen.blit(player_walk, player_rect)
+                player_img = female_run1 if frame_index == 0 else female_run2
 
-        # 결과 화면 출력
-        elif game_state == 'FAIL1':
-            screen.blit(fail1_img, (0, 0))
-            
-            # === 수정된 부분: 재시작 안내 텍스트 출력 ===
-            gameover_text = font.render(
-                "PRESS ANY KEY TO RETRY",
-                True,
-                (0, 0, 0) # 검은색 텍스트
-            )
-            # 텍스트를 화면 하단 중앙에 배치
-            text_rect = gameover_text.get_rect(center=(screen_width // 2, 520))
-            screen.blit(gameover_text, text_rect)
-            # ============================================
-            
-        elif game_state == 'SUCCESS':
-            screen.blit(success_img, (0, 0))
-            # 다음 스테이지 안내 문구 추가
-            next_text = font.render("PRESS ANY KEY TO NEXT STAGE", True, (0, 0, 0))
-            text_rect = next_text.get_rect(center=(screen_width // 2, 520))
-            screen.blit(next_text, text_rect)
+            # 캐릭터 출력
+            DISPLAYSURF.blit(player_img, (mx - 50, my - 50))
 
-        pygame.display.flip() # 화면 업데이트
-        clock.tick(60) # 60 FPS 유지
+        # =========================
+        # 게임오버 화면
+        # =========================
+        elif scene == "gameover":
+            DISPLAYSURF.blit(gameover_img, (0,0))
+            retry_text = font.render("PRESS ANY KEY TO RETRY", True, (255,255,255))
+            retry_rect = retry_text.get_rect(center=(400,520))
+            DISPLAYSURF.blit(retry_text, retry_rect)
+
+        # =========================
+        # [수정] Stage2 대기 화면 연출
+        # =========================
+        elif scene == "stage2":
+            DISPLAYSURF.fill((0,0,0))
+            clear_text = font.render("STAGE 1 CLEAR! (PRESS ANY KEY)", True, (255,255,255))
+            clear_rect = clear_text.get_rect(center=(400,300))
+            DISPLAYSURF.blit(clear_text, clear_rect)
+
+        pygame.display.update()
