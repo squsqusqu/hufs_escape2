@@ -1,13 +1,9 @@
 import pygame, sys
 from pygame.locals import *
 
-def run():
-    # 화면 설정
+def run(DISPLAYSURF):
     WIDTH = 800
     HEIGHT = 600
-    
-    DISPLAYSURF = pygame.display.set_mode((WIDTH, HEIGHT))
-    pygame.display.set_caption("외대탈출")
     
     clock = pygame.time.Clock()
     
@@ -88,8 +84,7 @@ def run():
         for event in pygame.event.get():
     
             if event.type == QUIT:
-                pygame.quit()
-                sys.exit()
+                return None
     
             # =========================
             # 시작 화면 작동
